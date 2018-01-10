@@ -10,6 +10,26 @@
 import Foundation
 import Dispatch
 
+fileprivate class Processes {
+    class Weak<T> where T: AnyObject {
+        weak var value: T?
+        init(_ value: T) {
+            self.value = value
+        }
+    }
+    private static var runningProcesses: [Weak<Process>] = []
+    static var instance: Processes = Processes()
+    fileprivate init() {
+        Signals.trap(signal: .int) { signal in
+            Processes.runningProcesses.forEach({$0.value?.terminate()})
+        }
+    }
+    func add(process: Process) {
+        Processes.runningProcesses.append(Weak(process))
+    }
+    
+}
+    
 // MARK: exit
 
 /**
@@ -413,7 +433,7 @@ extension CommandRunning {
 	public func runAndPrint(_ executable: String, _ args: Any ...) throws {
 		let stringargs = args.flatten().map(String.init(describing:))
 		let process = createProcess(executable, args: stringargs)
-
+        Processes.instance.add(process: process)
 		try process.launchThrowably()
 		try process.finish()
 	}
