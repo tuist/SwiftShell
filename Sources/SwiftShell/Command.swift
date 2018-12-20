@@ -10,6 +10,28 @@
 import Foundation
 import Dispatch
 
+fileprivate class Processes {
+    class Weak<T> where T: AnyObject {
+        weak var value: T?
+        init(_ value: T) {
+            self.value = value
+        }
+    }
+    private static var runningProcesses: [Weak<Process>] = []
+    static var instance: Processes = Processes()
+    fileprivate init() {
+        let signals: [Signals.Signal] = [.hup, .int, .quit, .abrt, .kill, .alrm, .term, .pipe]
+        Signals.trap(signals: signals) { _ in
+            Processes.runningProcesses.forEach({$0.value?.terminate()})
+        }
+    }
+    
+    func add(process: Process) {
+        Processes.runningProcesses.append(Weak(process))
+    }
+    
+}
+
 // MARK: exit
 
 /**
@@ -149,7 +171,7 @@ public final class RunOutput {
 			// launch and read stdout and stderror.
 			// see https://github.com/kareman/SwiftShell/issues/52
 			try command.process.launchThrowably()
-
+            
 			if command.stdout.filehandle.fileDescriptor != command.stderror.filehandle.fileDescriptor {
 				DispatchQueue.global().async(group: group) {
 					stderror = command.stderror.readData()
@@ -169,6 +191,7 @@ public final class RunOutput {
 		self.rawStdout = stdout
 		self.rawStderror = stderror
 		self.output = command
+        Processes.instance.add(process: output.process)
 		self.error = error
 	}
 
@@ -413,7 +436,7 @@ extension CommandRunning {
 	public func runAndPrint(_ executable: String, _ args: Any ...) throws {
 		let stringargs = args.flatten().map(String.init(describing:))
 		let process = createProcess(executable, args: stringargs)
-
+        Processes.instance.add(process: process)
 		try process.launchThrowably()
 		try process.finish()
 	}
