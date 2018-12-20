@@ -18,7 +18,9 @@ fileprivate class Processes {
         }
     }
     private static var runningProcesses: [Weak<Process>] = []
+    
     static var instance: Processes = Processes()
+    
     fileprivate init() {
         let signals: [Signals.Signal] = [.hup, .int, .quit, .abrt, .kill, .alrm, .term, .pipe]
         Signals.trap(signals: signals) { _ in
@@ -170,6 +172,7 @@ public final class RunOutput {
 		do {
 			// launch and read stdout and stderror.
 			// see https://github.com/kareman/SwiftShell/issues/52
+            Processes.instance.add(process: command.process)
 			try command.process.launchThrowably()
             
 			if command.stdout.filehandle.fileDescriptor != command.stderror.filehandle.fileDescriptor {
@@ -191,7 +194,6 @@ public final class RunOutput {
 		self.rawStdout = stdout
 		self.rawStderror = stderror
 		self.output = command
-        Processes.instance.add(process: output.process)
 		self.error = error
 	}
 
